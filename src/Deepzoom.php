@@ -1,198 +1,461 @@
 <?php
-
-namespace Jeremytubbs\Deepzoom;
-
-use Intervention\Image\ImageManager;
-use League\Flysystem\FilesystemInterface;
+namespace DanielKm\Deepzoom;
 
 /**
- * Class Deepzoom
- * @package Jeremytubbs\Deepzoom
+ * Deepzoom big images into tiles supported by "OpenSeadragon", "OpenLayers" and
+ * many other viewers.
+ *
+ * The process is a mix of the Laravel plugin [Deepzoom](https://github.com/jeremytubbs/deepzoom)
+ * of Jeremy Tubbs, the standalone open zoom builder [Deepzoom.php](https://github.com/nfabre/deepzoom.php)
+ * of Nicolas Fabre, the [blog](http://omarriott.com/aux/leaflet-js-non-geographical-imagery/)
+ * of Olivier Mariott, and the Zoomify converter (see the integrated library).
+ * See respective copyright and license (MIT and GNU/GPL) in the above pages.
+ */
+
+/**
+ * Provides an interface to perform tiling of images.
+ *
+ * @package DanielKm\Deepzoom
  */
 class Deepzoom
 {
-    protected $path;
-    protected $imageManager;
-    protected $tileFormat;
 
-    private $tileSize;
-    private $tileOverlap;
-    private $pathPrefix;
+    /**
+     * The processor to use.
+     *
+     * @var string
+     */
+    protected $processor;
+
+    /**
+     * The path to command line ImageMagick convert when the processor is "cli".
+     *
+     * @var string
+     */
+    protected $convertPath;
+
+    /**
+     * The strategy to use by php to process a command ("exec" or "proc_open").
+     *
+     * @var string
+     */
+    protected $executeStrategy;
+
+    /**
+     * The path to the image.
+     *
+     * @var string
+     */
+    protected $filepath;
+
+    /**
+     * The path to the destination dir.
+     *
+     * @var string
+     */
+    protected $destinationDir;
+
+    /**
+     * If an existing destination should be removed.
+     *
+     * @var interger
+     */
+    protected $destinationRemove = false;
+
+    /**
+     * The file system mode of the directories.
+     *
+     * @var integer
+     */
+    protected $dirMode = 0755;
 
 
     /**
-     * @param FilesystemInterface $path
-     * @param ImageManager $imageManager
+     * The size of tiles.
+     *
+     * @var interger
      */
-    public function __construct(FilesystemInterface $path, ImageManager $imageManager, $tileFormat, $pathPrefix)
-    {
-        $this->setImageManager($imageManager);
-        $this->setPath($path);
-        $this->tileSize = 256;
-        $this->tileOverlap = 1;
-        $this->tileFormat = $tileFormat;
-        $this->pathPrefix = $pathPrefix;
-    }
+    protected $tileSize = 256;
 
     /**
-     * @param $image
-     * @param null $file
-     * @param null $folder
-     * @return array|string
+     * The overlap of tiles.
+     *
+     * @var integer
      */
-    public function makeTiles($image, $file = NULL, $folder = NULL)
+    protected $tileOverlap = 1;
+
+    /**
+     * The format of tiles.
+     *
+     * @var string
+     */
+    protected $tileFormat = 'jpg';
+
+    /**
+     * The quality of the tile.
+     *
+     * @var integer
+     */
+    protected $tileQuality = 85;
+
+    /**
+     * Various metadata of the source and tiles.
+     *
+     * @array
+     */
+    protected $data = array();
+
+    /**
+     * Constructor.
+     *
+     * @param array $config
+     * @throws \Exception
+     */
+    function __construct(array $config = null)
     {
-        // path to a test image
-        $img = $this->imageManager->make($image);
-
-        // get image width and height
-        $height = $img->height();
-        $width = $img->width();
-
-        $maxDimension = max([$width, $height]);
-
-        // calculate the number of levels
-        $numLevels = $this->getNumLevels($maxDimension);
-
-        // set filename or use path filename
-        $filename = $file !== NULL ? $file : pathinfo($image)['filename'];
-        $filename = $this->cleanupFilename($filename);
-
-        // set folder or use path filename
-        $foldername = $folder !== NULL ? $folder : pathinfo($image)['filename'];
-        $foldername = $this->cleanupFolderName($foldername);
-
-        // check for spaces in names
-        $check = $this->checkJsonFilename($filename);
-        if ($check != 'ok') return $check;
-
-        $folder = $foldername.'/'.$filename.'_files';
-        $this->path->createDir($folder);
-
-        foreach(range($numLevels - 1, 0) as $level) {
-            $level_folder = $folder.'/'.$level;
-            $this->path->createDir($level_folder);
-            // calculate scale for level
-            $scale = $this->getScaleForLevel($numLevels, $level);
-            // calculate dimensions for levels
-            $dimension = $this->getDimensionForLevel($width, $height, $scale);
-            // create tiles for level
-            $this->createLevelTiles($dimension['width'], $dimension['height'], $level, $level_folder, $img);
+        if (is_null($config)) {
+            $config = array();
         }
 
-        $DZI = $this->createDZI($height, $width);
-        $this->path->put($foldername.'/'.$filename.'.dzi', $DZI);
+        foreach ($config as $key => $value) {
+            if (property_exists($this, $key)) {
+                $this->$key = $value;
+            }
+        }
 
-        $JSONP = $this->createJSONP($filename, $height, $width);
-        $this->path->put($foldername.'/'.$filename.'.js', $JSONP);
-
-        $data = [
-            'output' => [
-                'JSONP'  => "$this->pathPrefix/$foldername/$filename.js",
-                'DZI'    => "$this->pathPrefix/$foldername/$filename.dzi",
-                '_files' => "$this->pathPrefix/$foldername/".$filename."_files",
-            ],
-            'source' => $image,
-        ];
-
-        // used with Laravel to fire event
-        if ( defined('LARAVEL_START') ) \Event::fire('deepzoom', [$data]);
-
-        return [
-            'status' => 'ok',
-            'data' => $data,
-            'message' => 'Everything is okay!'
-        ];
+        // Check the processor.
+        // Automatic.
+        if (empty($this->processor)) {
+            if (extension_loaded('imagick')) {
+                $this->processor = 'Imagick';
+            } elseif (extension_loaded('gd')) {
+                $this->processor = 'GD';
+            } elseif (!empty($this->convertPath)) {
+                $this->processor = 'ImageMagick';
+            } else {
+                $this->convertPath = $this->getConvertPath();
+                if (!empty($this->convertPath)) {
+                    $this->processor = 'ImageMagick';
+                } else {
+                    throw new \Exception ('Convert path is not available.');
+                }
+            }
+        }
+        // Imagick.
+        elseif ($this->processor == 'Imagick') {
+            if (!extension_loaded('imagick')) {
+                throw new \Exception ('Imagick library is not available.');
+            }
+        }
+        // GD.
+        elseif ($this->processor == 'GD') {
+            if (!extension_loaded('gd')) {
+                throw new \Exception ('GD library is not available.');
+            }
+        }
+        // CLI.
+        elseif ($this->processor == 'ImageMagick') {
+            if (empty($this->convertPath)) {
+                $this->convertPath = $this->getConvertPath();
+                if (empty($this->convertPath)) {
+                    throw new \Exception ('Convert path is not available.');
+                }
+            }
+        }
+        // Error.
+        else {
+            throw new \Exception ('No graphic library available.');
+        }
     }
 
     /**
+     * Deepzoom the specified image and it them in the destination dir.
+     *
+     * Check to be sure the file hasn't been converted already.
+     *
+     * @param string $filepath The path to the image.
+     * @param string $destinationDir The directory where to store the tiles.
+     * @return boolean
+     */
+    public function process($filepath, $destinationDir = '')
+    {
+        $this->filepath = realpath($filepath);
+        $this->destinationDir = $destinationDir;
+
+        $this->getImageMetadata();
+        $result = $this->createDataContainer();
+        if (!$result) {
+            throw new \Exception ('Output directory already exists.');
+        }
+        $this->processImage();
+        $result = $this->saveXMLOutput();
+        return $result;
+    }
+
+    /**
+     * Given an image name, load it and extract metadata.
+     *
+     * @return void
+     */
+    protected function getImageMetadata()
+    {
+        list($this->data['width'], $this->data['height'], $this->data['format']) = getimagesize($this->filepath);
+    }
+
+    /**
+     * Create a container (a folder) for tiles and tile metadata if not set.
+     */
+    protected function createDataContainer()
+    {
+        if ($this->destinationDir) {
+            $locationDir = $this->destinationDir;
+            $filename = basename($this->filepath);
+        }
+        //Determine the path to the directory from the filepath.
+        else {
+            list($root, $ext) = $this->getRootAndDotExtension($this->filepath);
+            $locationDir = dirname($root);
+            $filename = basename($root);
+        }
+
+        $this->data['baseDir'] = $locationDir;
+        $basepath = $locationDir . DIRECTORY_SEPARATOR . pathinfo($filename, PATHINFO_FILENAME);
+        $this->data['dzi'] = $basepath . '.dzi';
+        $this->data['tileDir'] = $basepath . '_files';
+
+        // If the paths already exist, an image is being re-processed, clean up
+        // for it.
+        if ($this->destinationRemove) {
+            if (file_exists($this->data['dzi'])) {
+                $result = unlink($this->data['dzi']);
+            }
+            if (is_dir($this->data['tileDir'])) {
+                $result = $this->rmDir($this->data['tileDir']);
+            }
+        } elseif (file_exists($this->data['dzi']) || is_dir($this->data['tileDir'])) {
+            return false;
+        }
+
+        mkdir($this->data['tileDir'], $this->dirMode, true);
+
+        return  true;
+    }
+
+    /**
+     * Create a container for the next group of tiles within the data container.
+     *
+     * @return void
+     */
+    protected function createTileContainer($tileContainerName)
+    {
+        $tileContainerPath = $this->data['tileDir'] . DIRECTORY_SEPARATOR . $tileContainerName;
+        if (!is_dir($tileContainerPath)) {
+            mkdir($tileContainerPath, $this->dirMode);
+        }
+    }
+
+    /**
+     * Starting with the original image, start processing each level.
+     *
+     * @return void
+     */
+    protected function processImage()
+    {
+        switch ($this->processor) {
+            case 'Imagick':
+                $image = new \Imagick();
+                $image->readImage($this->filepath);
+                $image->transformImageColorspace(\Imagick::COLORSPACE_SRGB);
+                $image->stripImage();
+                break;
+            case 'GD':
+                $image = $this->openImage();
+                $this->data['image'] = $image;
+                break;
+            case 'ImageMagick':
+                $image = $this->filepath;
+                break;
+        }
+
+        $width = $this->data['width'];
+        $height = $this->data['height'];
+
+        $maxDimension = max(array($width, $height));
+        $numLevels = $this->getNumLevels($maxDimension);
+
+        foreach(range($numLevels - 1, 0) as $level) {
+            $this->createTileContainer($level);
+            $scale = $this->getScaleForLevel($numLevels, $level);
+            $dimension = $this->getDimensionForScale($width, $height, $scale);
+            $this->createLevelTiles($image, $level, $dimension['width'], $dimension['height']);
+        }
+
+        switch ($this->processor) {
+            case 'Imagick':
+                $image->destroy();
+                break;
+            case 'GD':
+                imagedestroy($image);
+                break;
+            case 'ImageMagick':
+                // Nothing to do.
+                break;
+        }
+    }
+
+    /**
+     * Get the number of levels in the pyramid.
+     *
      * @param $maxDimension
      * @return int
      */
-    public function getNumLevels($maxDimension)
+    protected function getNumLevels($maxDimension)
     {
-        return (int)ceil(log($maxDimension,2)) + 1;
+        return (integer) ceil(log($maxDimension, 2)) + 1;
     }
 
     /**
+     * Get the number of tiles according to the tile size.
+     *
      * @param $width
      * @param $height
      * @return array
      */
-    public function getNumTiles($width, $height)
+    protected function getNumTiles($width, $height)
     {
         $columns = (int)ceil(floatval($width) / $this->tileSize);
         $rows = (int)ceil(floatval($height) / $this->tileSize);
-        return ['columns' => $columns, 'rows' => $rows];
+        return array('columns' => $columns, 'rows' => $rows);
     }
 
     /**
-     * @param $numLevels
+     * Get the scale for the specified level, according to the number of levels.
+     *
+     * @param $numberLevels
      * @param $level
      * @return number
      */
-    public function getScaleForLevel($numLevels, $level)
+    protected  function getScaleForLevel($numberLevels, $level)
     {
-        $maxLevel = $numLevels - 1;
-        return pow(0.5,$maxLevel - $level);
+        $maxLevel = $numberLevels - 1;
+        return pow(0.5, $maxLevel - $level);
     }
 
     /**
+     * Get the dimension for the specified size and scale.
+     *
      * @param $width
      * @param $height
      * @param $scale
      * @return array
      */
-    public function getDimensionForLevel($width, $height, $scale)
+    protected function getDimensionForScale($width, $height, $scale)
     {
-        $width = (int)ceil($width * $scale);
-        $height = (int)ceil($height * $scale);
-        return ['width' => $width, 'height' => $height];
+        $width = (integer) ceil($width * $scale);
+        $height = (integer) ceil($height * $scale);
+        return array('width' => $width, 'height' => $height);
     }
 
     /**
+     * Process a level of tiles.
+     *
+     * @param $image
+     * @param $level
      * @param $width
      * @param $height
-     * @param $level
-     * @param $folder
-     * @param $img
+     * @return void
      */
-    public function createLevelTiles($width, $height, $level, $folder, $img)
+    protected function createLevelTiles($image, $level, $width, $height)
     {
-        // create new image at scaled dimensions
-        $img = $img->resize($width, $height);
-        // get column and row count for level
+        // Create new image at scaled dimensions.
+        switch ($this->processor) {
+            case 'Imagick':
+                $image->resizeImage($width, $height, \Imagick::FILTER_LANCZOS, 1, false);
+                break;
+            case 'GD':
+                $imageLevel = $this->imageResize($width, $height);
+                break;
+            case 'ImageMagick':
+                $resize = array();
+                $resize['width'] = $width;
+                $resize['height'] = $height;
+                break;
+        }
+
+        $basepath = $this->data['tileDir'] . DIRECTORY_SEPARATOR . $level;
+
+        // Get column and row count for level.
         $tiles = $this->getNumTiles($width, $height);
 
         foreach (range(0, $tiles['columns'] - 1) as $column) {
             foreach (range(0, $tiles['rows'] - 1) as $row) {
-                $tileImg = clone $img;
-                $tile_file = $column.'_'.$row.'.'.$this->tileFormat;
-                $bounds = $this->getTileBounds($level,$column,$row,$width,$height);
-                $tileImg->crop($bounds['width'],$bounds['height'],$bounds['x'],$bounds['y']);
-                $tileImg->encode($this->tileFormat);
-                $this->path->put("$folder/$tile_file", $tileImg);
-                unset($tileImg);
+                $filename = $column . '_' . $row . '.' . $this->tileFormat;
+                $filepath = $basepath . DIRECTORY_SEPARATOR . $filename;
+                $bounds = $this->getTileBounds($level, $column, $row, $width, $height);
+
+                switch ($this->processor) {
+                    case 'Imagick':
+                        $tileImage = clone $image;
+                        $tileImage->setImagePage(0, 0, 0, 0);
+                        $tileImage->cropImage($bounds['width'], $bounds['height'], $bounds['x'], $bounds['y']);
+                        $tileImage->setImageFormat($this->tileFormat);
+                        if ($this->tileFormat == 'jpg') {
+                            $tileImage->setImageCompression(\Imagick::COMPRESSION_JPEG);
+                        }
+                        $tileImage->setImageCompressionQuality($this->tileQuality);
+                        $tileImage->writeImage($filepath);
+                        $tileImage->destroy();
+                        break;
+                    case 'GD':
+                        $ul_x = $bounds['x'];
+                        $ul_y = $bounds['y'];
+                        $lr_x = $bounds['x'] + $bounds['width'];
+                        $lr_y = $bounds['y'] + $bounds['height'];
+                        $tileImage = $this->imageCrop($imageLevel, $ul_x, $ul_y, $lr_x, $lr_y);
+                        touch($filepath);
+                        imagejpeg($tileImage, $filepath, $this->tileQuality);
+                        imagedestroy($tileImage);
+                        break;
+                    case 'ImageMagick':
+                        $this->imageResizeCrop($image, $filepath, $resize, $bounds);
+                        break;
+                }
             }
+        }
+
+        switch ($this->processor) {
+            case 'Imagick':
+                // Nothing to do.
+                break;
+            case 'GD':
+                imagedestroy($imageLevel);
+                break;
+            case 'ImageMagick':
+                // Nothing to do.
+                break;
         }
     }
 
     /**
+     * Get the tile bounds position.
+     *
      * @param $column
      * @param $row
      * @return array
      */
-    public function getTileBoundsPosition($column, $row)
+    protected function getTileBoundsPosition($column, $row)
     {
         $offsetX = $column == 0 ? 0 : $this->tileOverlap;
         $offsetY = $row == 0 ? 0 : $this->tileOverlap;
         $x = ($column * $this->tileSize) - $offsetX;
         $y = ($row * $this->tileSize) - $offsetY;
 
-        return ['x' => $x, 'y' => $y];
+        return array('x' => $x, 'y' => $y);
     }
 
     /**
+     * Get the tile bounds.
+     *
      * @param $level
      * @param $column
      * @param $row
@@ -200,7 +463,7 @@ class Deepzoom
      * @param $h
      * @return array
      */
-    public function getTileBounds($level, $column, $row, $w, $h)
+    protected function getTileBounds($level, $column, $row, $w, $h)
     {
         $position = $this->getTileBoundsPosition($column, $row);
 
@@ -209,130 +472,267 @@ class Deepzoom
         $newWidth = min($width, $w - $position['x']);
         $newHeight = min($height, $h - $position['y']);
 
-        return array_merge($position,['width' => $newWidth,'height' => $newHeight]);
+        return array_merge($position, array('width' => $newWidth,'height' => $newHeight));
     }
 
     /**
-     * @param $height
-     * @param $width
-     * @return string
+     * Save xml metadata about the tiles.
+     *
+     * @return boolean
      */
-    public function createDZI($height, $width)
+    protected function saveXMLOutput()
     {
-        return <<<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<Image xmlns="http://schemas.microsoft.com/deepzoom/2008"
-       Format="$this->tileFormat"
-       Overlap="$this->tileOverlap"
-       TileSize="$this->tileSize" >
-    <Size Height="$height"
-          Width="$width" />
-</Image>
-EOF;
+        $xmlFile = fopen($this->data['dzi'], 'w');
+        if ($xmlFile === false) {
+            return false;
+        }
+        fwrite($xmlFile, $this->getXMLOutput());
+        return fclose($xmlFile);
     }
 
     /**
-     * @param $filename
-     * @param $height
-     * @param $width
+     * Create xml metadata about the tiles
+     *
      * @return string
      */
-    public function createJSONP($filename, $height, $width)
+    protected function getXMLOutput()
     {
-        return <<<EOF
-$filename({
-    Image: {
-        xmlns: 'http://schemas.microsoft.com/deepzoom/2008',
-        Format: '$this->tileFormat',
-        Overlap: $this->tileOverlap,
-        TileSize: $this->tileSize,
-        Size: {
-            Width: $width,
-            Height: $height
+        $xmlOutput = sprintf('<?xml version="1.0" encoding="UTF-8"?>
+<Image xmlns="http://schemas.microsoft.com/deepzoom/2008" Format="%s" Overlap="%s" TileSize="%s">
+    <Size Height="%s" Width="%s" />
+</Image>',
+            $this->tileFormat, $this->tileOverlap, $this->tileSize, $this->data['height'], $this->data['width']) .PHP_EOL;
+        return $xmlOutput;
+    }
+
+    /**
+     * Remove a dir from filesystem.
+     *
+     * @param string $dirpath
+     * @return boolean
+     */
+    protected function rmDir($dirPath)
+    {
+        $files = array_diff(scandir($dirPath), array('.', '..'));
+        foreach ($files as $file) {
+            $path = $dirPath . DIRECTORY_SEPARATOR . $file;
+            if (is_dir($path)) {
+                $this->rmDir($path);
+            }
+            else {
+                unlink($path);
+            }
+        }
+        return rmdir($dirPath);
+    }
+
+    /**
+     * Load the image data.
+     *
+     * @return ressource identifier of the image.
+     */
+    protected function openImage()
+    {
+        return $this->getImageFromFile($this->filepath);
+    }
+
+    /**
+     * Helper to get an image of different type (jpg, png or gif) from file.
+     *
+     * @return ressource identifier of the image.
+     */
+    protected function getImageFromFile($filepath)
+    {
+        switch (strtolower(pathinfo($filepath, PATHINFO_EXTENSION))) {
+            case 'png':
+                return imagecreatefrompng($filepath);
+            case 'gif':
+                return imagecreatefromgif($filepath);
+            case 'jpg':
+            case 'jpe':
+            case 'jpeg':
+            default:
+                return imagecreatefromjpeg($filepath);
         }
     }
-});
-EOF;
-    }
 
     /**
-     * @param $string
-     * @return string
+     * Crop an image to a size.
+     *
+     * @return ressource identifier of the image.
      */
-    public function cleanupFilename($string)
+    protected function imageCrop($image, $left, $upper, $right, $lower)
     {
-        // trim space
-        $string = trim($string);
-        // replace strings and dashes with underscore
-        return str_replace(['/\s/', '-', ' '], '_', $string);
+        $w = abs($right - $left);
+        $h = abs($lower - $upper);
+        $crop = imagecreatetruecolor($w, $h);
+        imagecopy($crop, $image, 0, 0, $left, $upper, $w, $h);
+        return $crop;
     }
 
     /**
-     * @param $string
-     * @return string
+     * Resize the GD main image.
+     *
+     * @param integer $width
+     * @param integer $height
+     * @return resource
      */
-    public function cleanupFolderName($string)
+    protected function imageResize($width, $height)
     {
-        // trim space
-        $string = trim($string);
-        // replace strings and dashes with dash
-        return str_replace(['/\s/', ' '], '-', $string);
-    }
+        $tempImage = imagecreatetruecolor($width, $height);
+        $result = imagecopyresampled(
+            $tempImage, $this->data['image'],
+            0, 0, 0, 0,
+            $width, $height, $this->data['width'], $this->data['height']);
 
-    /**
-     * @param $string
-     * @return array|string
-     */
-    public function checkJsonFilename($string) {
-        // for JSONP filename cannot contain special characters
-        $specialCharRegex = '/[\'^£%&*()}{@#~?><> ,|=+¬-]/';
-        if (preg_match($specialCharRegex, $string)) {
-            return [
-                'status' => 'error',
-                'message' => 'JSONP filename name must not contain special characters.'
-            ];
+        if ($result === false) {
+            imagedestroy($tempImage);
+            throw new \Exception('Cannot resize image with GD.');
         }
-        // for JSONP filename cannot start with a number
-        $stringFirstChar = substr($string, 0, 1);
-        // if numeric add 'a' to begining of filename
-        if (is_numeric($stringFirstChar)) {
-            return [
-                'status' => 'error',
-                'message' => 'JSONP filenames must not start with a numeric value.'
-            ];
+
+        return $tempImage;
+    }
+
+    /**
+     * Resize and crop an image via convert.
+     *
+     * @internal For resize, the size is forced (option "!").
+     *
+     * @param string $source
+     * @param string $destination
+     * @param array $resize Array with width and height.
+     * @param array $crop Array with width, height, upper left x and y.
+     * @return boolean
+     */
+    protected function imageResizeCrop($source, $destination, $resize = array(), $crop = array())
+    {
+        $params = array();
+        // Clean the canvas.
+        $params[] = '+repage';
+        $params[] = '-flatten';
+        if ($resize) {
+            $params[] = '-thumbnail ' . escapeshellarg(sprintf('%sx%s!', $resize['width'], $resize['height']));
         }
-        return 'ok';
+        if ($crop) {
+            $params[] = '-crop ' . escapeshellarg(sprintf('%dx%d+%d+%d', $crop['width'], $crop['height'], $crop['x'], $crop['y']));
+        }
+        $params[] = '-quality ' . $this->tileQuality;
+
+        $result = $this->convert($source, $destination, $params);
+        return $result;
     }
 
     /**
-     * @param ImageManager $imageManager
+     * Helper to process a convert command.
+     *
+     * @param string $source
+     * @param string $destination
+     * @param array $params
+     * @return boolean
      */
-    public function setImageManager(ImageManager $imageManager)
+    protected function convert($source, $destination, $params)
     {
-        $this->imageManager = $imageManager;
+        $command = sprintf(
+            '%s %s %s %s',
+            $this->convertPath,
+            escapeshellarg($source . '[0]'),
+            implode(' ', $params),
+            escapeshellarg($destination)
+        );
+        $result = $this->execute($command);
+        return $result !== false;
     }
 
     /**
-     * @return mixed
+     * Helper to get the command line to convert.
+     *
+     * @return string|null
      */
-    public function getImageManager()
+    public function getConvertPath()
     {
-        return $this->imageManager;
+        $command = 'whereis -b convert';
+        $result = $this->execute($command);
+        if (empty($result)) {
+            return;
+        }
+        strtok($result, ' ');
+        return strtok(' ');
     }
 
     /**
-     * @param FilesystemInterface $path
+     * Execute a command.
+     *
+     * Expects arguments to be properly escaped.
+     *
+     * @see Omeka\Service\Cli
+     *
+     * @param string $command An executable command
+     * @return string|false The command's standard output or false on error
      */
-    public function setPath(FilesystemInterface $path)
+    protected function execute($command)
     {
-        $this->path = $path;
+        switch ($this->executeStrategy) {
+            case 'proc_open':
+                $output = $this->procOpen($command);
+                break;
+            case 'exec':
+            default:
+                $output = $this->exec($command);
+                break;
+        }
+
+        return $output;
     }
 
     /**
-     * @return mixed
+     * Execute command using PHP's exec function.
+     *
+     * @see http://php.net/manual/en/function.exec.php
+     * @param string $command
+     * @return string|false
      */
-    public function getPath()
+    protected function exec($command)
     {
-        return $this->path;
+        exec($command, $output, $exitCode);
+        if (0 !== $exitCode) {
+            return false;
+        }
+        return implode(PHP_EOL, $output);
+    }
+
+    /**
+     * Execute command using PHP's proc_open function.
+     *
+     * For servers that allow proc_open. Logs standard error.
+     *
+     * @see http://php.net/manual/en/function.proc-open.php
+     * @param string $command
+     * @return string|false
+     */
+    protected static function procOpen($command)
+    {
+        // Using proc_open() instead of exec() solves a problem where exec('convert')
+        // fails with a "Permission Denied" error because the current working
+        // directory cannot be set properly via exec().  Note that exec() works
+        // fine when executing in the web environment but fails in CLI.
+        $descriptorSpec = array(
+            0 => array("pipe", "r"), //STDIN
+            1 => array("pipe", "w"), //STDOUT
+            2 => array("pipe", "w"), //STDERR
+        );
+        $proc = proc_open($command, $descriptorSpec, $pipes, getcwd());
+        if (!is_resource($proc)) {
+            return false;
+        }
+        $output = stream_get_contents($pipes[1]);
+        $errors = stream_get_contents($pipes[2]);
+        foreach ($pipes as $pipe) {
+            fclose($pipe);
+        }
+        $exitCode = proc_close($proc);
+        if (0 !== $exitCode) {
+            return false;
+        }
+        return trim($output);
     }
 }
