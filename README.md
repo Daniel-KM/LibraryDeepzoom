@@ -1,6 +1,8 @@
 Deepzoom (php library)
 ======================
 
+[![Package version](https://img.shields.io/packagist/v/daniel-km/deepzoom.svg)](https://packagist.org/packages/daniel-km/deepzoom)
+
 [Deepzoom] is a stand-alone library to generate tiles of big images in order to
 zoom them instantly. The format of tiles is [DZI] and they can be used with
 [OpenSeadragon], [OpenLayers] and various viewers.
