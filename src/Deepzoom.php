@@ -19,7 +19,6 @@ namespace DanielKm\Deepzoom;
  */
 class Deepzoom
 {
-
     /**
      * The processor to use.
      *
@@ -65,10 +64,9 @@ class Deepzoom
     /**
      * The file system mode of the directories.
      *
-     * @var integer
+     * @var int
      */
     protected $dirMode = 0755;
-
 
     /**
      * The size of tiles.
@@ -80,7 +78,7 @@ class Deepzoom
     /**
      * The overlap of tiles.
      *
-     * @var integer
+     * @var int
      */
     protected $tileOverlap = 1;
 
@@ -94,7 +92,7 @@ class Deepzoom
     /**
      * The quality of the tile.
      *
-     * @var integer
+     * @var int
      */
     protected $tileQuality = 85;
 
@@ -111,7 +109,7 @@ class Deepzoom
      * @param array $config
      * @throws \Exception
      */
-    function __construct(array $config = null)
+    public function __construct(array $config = null)
     {
         if (is_null($config)) {
             $config = array();
@@ -137,20 +135,20 @@ class Deepzoom
                 if (!empty($this->convertPath)) {
                     $this->processor = 'ImageMagick';
                 } else {
-                    throw new \Exception ('Convert path is not available.');
+                    throw new \Exception('Convert path is not available.');
                 }
             }
         }
         // Imagick.
         elseif ($this->processor == 'Imagick') {
             if (!extension_loaded('imagick')) {
-                throw new \Exception ('Imagick library is not available.');
+                throw new \Exception('Imagick library is not available.');
             }
         }
         // GD.
         elseif ($this->processor == 'GD') {
             if (!extension_loaded('gd')) {
-                throw new \Exception ('GD library is not available.');
+                throw new \Exception('GD library is not available.');
             }
         }
         // CLI.
@@ -158,13 +156,13 @@ class Deepzoom
             if (empty($this->convertPath)) {
                 $this->convertPath = $this->getConvertPath();
                 if (empty($this->convertPath)) {
-                    throw new \Exception ('Convert path is not available.');
+                    throw new \Exception('Convert path is not available.');
                 }
             }
         }
         // Error.
         else {
-            throw new \Exception ('No graphic library available.');
+            throw new \Exception('No graphic library available.');
         }
     }
 
@@ -175,7 +173,7 @@ class Deepzoom
      *
      * @param string $filepath The path to the image.
      * @param string $destinationDir The directory where to store the tiles.
-     * @return boolean
+     * @return bool
      */
     public function process($filepath, $destinationDir = '')
     {
@@ -185,7 +183,7 @@ class Deepzoom
         $this->getImageMetadata();
         $result = $this->createDataContainer();
         if (!$result) {
-            throw new \Exception ('Output directory already exists.');
+            throw new \Exception('Output directory already exists.');
         }
         $this->processImage();
         $result = $this->saveXMLOutput();
@@ -194,8 +192,6 @@ class Deepzoom
 
     /**
      * Given an image name, load it and extract metadata.
-     *
-     * @return void
      */
     protected function getImageMetadata()
     {
@@ -243,8 +239,6 @@ class Deepzoom
 
     /**
      * Create a container for the next group of tiles within the data container.
-     *
-     * @return void
      */
     protected function createTileContainer($tileContainerName)
     {
@@ -256,8 +250,6 @@ class Deepzoom
 
     /**
      * Starting with the original image, start processing each level.
-     *
-     * @return void
      */
     protected function processImage()
     {
@@ -283,7 +275,7 @@ class Deepzoom
         $maxDimension = max(array($width, $height));
         $numLevels = $this->getNumLevels($maxDimension);
 
-        foreach(range($numLevels - 1, 0) as $level) {
+        foreach (range($numLevels - 1, 0) as $level) {
             $this->createTileContainer($level);
             $scale = $this->getScaleForLevel($numLevels, $level);
             $dimension = $this->getDimensionForScale($width, $height, $scale);
@@ -323,8 +315,8 @@ class Deepzoom
      */
     protected function getNumTiles($width, $height)
     {
-        $columns = (int)ceil(floatval($width) / $this->tileSize);
-        $rows = (int)ceil(floatval($height) / $this->tileSize);
+        $columns = (int) ceil(floatval($width) / $this->tileSize);
+        $rows = (int) ceil(floatval($height) / $this->tileSize);
         return array('columns' => $columns, 'rows' => $rows);
     }
 
@@ -335,7 +327,7 @@ class Deepzoom
      * @param $level
      * @return number
      */
-    protected  function getScaleForLevel($numberLevels, $level)
+    protected function getScaleForLevel($numberLevels, $level)
     {
         $maxLevel = $numberLevels - 1;
         return pow(0.5, $maxLevel - $level);
@@ -363,7 +355,6 @@ class Deepzoom
      * @param $level
      * @param $width
      * @param $height
-     * @return void
      */
     protected function createLevelTiles($image, $level, $width, $height)
     {
@@ -472,13 +463,13 @@ class Deepzoom
         $newWidth = min($width, $w - $position['x']);
         $newHeight = min($height, $h - $position['y']);
 
-        return array_merge($position, array('width' => $newWidth,'height' => $newHeight));
+        return array_merge($position, array('width' => $newWidth, 'height' => $newHeight));
     }
 
     /**
      * Save xml metadata about the tiles.
      *
-     * @return boolean
+     * @return bool
      */
     protected function saveXMLOutput()
     {
@@ -509,7 +500,7 @@ class Deepzoom
      * Remove a dir from filesystem.
      *
      * @param string $dirpath
-     * @return boolean
+     * @return bool
      */
     protected function rmDir($dirPath)
     {
@@ -518,8 +509,7 @@ class Deepzoom
             $path = $dirPath . DIRECTORY_SEPARATOR . $file;
             if (is_dir($path)) {
                 $this->rmDir($path);
-            }
-            else {
+            } else {
                 unlink($path);
             }
         }
@@ -573,8 +563,8 @@ class Deepzoom
     /**
      * Resize the GD main image.
      *
-     * @param integer $width
-     * @param integer $height
+     * @param int $width
+     * @param int $height
      * @return resource
      */
     protected function imageResize($width, $height)
@@ -602,7 +592,7 @@ class Deepzoom
      * @param string $destination
      * @param array $resize Array with width and height.
      * @param array $crop Array with width, height, upper left x and y.
-     * @return boolean
+     * @return bool
      */
     protected function imageResizeCrop($source, $destination, $resize = array(), $crop = array())
     {
@@ -628,7 +618,7 @@ class Deepzoom
      * @param string $source
      * @param string $destination
      * @param array $params
-     * @return boolean
+     * @return bool
      */
     protected function convert($source, $destination, $params)
     {

@@ -5,14 +5,14 @@
     "license": "MIT",
     "authors" : [
         {
-            "name": "Jeremy Tubbs",
-            "email": "jeremytubbs@gmail.com",
-            "homepage": "http://jeremytubbs.com"
-        },
-        {
             "name": "Daniel Berthereau",
             "email": "daniel.packagist@berthereau.net",
             "homepage": "http://www.daniel.berthereau.net"
+        },
+        {
+            "name": "Jeremy Tubbs",
+            "email": "jeremytubbs@gmail.com",
+            "homepage": "http://jeremytubbs.com"
         }
     ],
     "keywords": [
