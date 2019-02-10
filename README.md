@@ -104,7 +104,7 @@ Copyright
 ---------
 
 * Copyright 2015-2016 Jeremy Tubbs
-* Copyright 2017 Daniel Berthereau (Daniel.github@Berthereau.net)
+* Copyright 2017-2019 Daniel Berthereau (see [Daniel-KM])
 
 
 [Deepzoom]: https://github.com/Daniel-KM/LibraryDeepzoom

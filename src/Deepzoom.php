@@ -57,7 +57,7 @@ class Deepzoom
     /**
      * If an existing destination should be removed.
      *
-     * @var interger
+     * @var int
      */
     protected $destinationRemove = false;
 
@@ -71,7 +71,7 @@ class Deepzoom
     /**
      * The size of tiles.
      *
-     * @var interger
+     * @var int
      */
     protected $tileSize = 256;
 
@@ -209,7 +209,7 @@ class Deepzoom
         }
         //Determine the path to the directory from the filepath.
         else {
-            list($root, $ext) = $this->getRootAndDotExtension($this->filepath);
+            list($root) = $this->getRootAndDotExtension($this->filepath);
             $locationDir = dirname($root);
             $filename = basename($root);
         }
@@ -223,10 +223,10 @@ class Deepzoom
         // for it.
         if ($this->destinationRemove) {
             if (file_exists($this->data['dzi'])) {
-                $result = unlink($this->data['dzi']);
+                unlink($this->data['dzi']);
             }
             if (is_dir($this->data['tileDir'])) {
-                $result = $this->rmDir($this->data['tileDir']);
+                $this->rmDir($this->data['tileDir']);
             }
         } elseif (file_exists($this->data['dzi']) || is_dir($this->data['tileDir'])) {
             return false;
@@ -519,7 +519,7 @@ class Deepzoom
     /**
      * Load the image data.
      *
-     * @return ressource identifier of the image.
+     * @return resource Identifier of the image.
      */
     protected function openImage()
     {
@@ -529,7 +529,7 @@ class Deepzoom
     /**
      * Helper to get an image of different type (jpg, png or gif) from file.
      *
-     * @return ressource identifier of the image.
+     * @return resource Identifier of the image.
      */
     protected function getImageFromFile($filepath)
     {
@@ -549,7 +549,7 @@ class Deepzoom
     /**
      * Crop an image to a size.
      *
-     * @return ressource identifier of the image.
+     * @return resource Identifier of the image.
      */
     protected function imageCrop($image, $left, $upper, $right, $lower)
     {
@@ -654,7 +654,7 @@ class Deepzoom
      *
      * Expects arguments to be properly escaped.
      *
-     * @see Omeka\Stdlib\Cli
+     * @see \Omeka\Stdlib\Cli
      *
      * @param string $command An executable command
      * @return string|false The command's standard output or false on error
@@ -683,6 +683,8 @@ class Deepzoom
      */
     protected function exec($command)
     {
+        $output = array();
+        $exitCode = null;
         exec($command, $output, $exitCode);
         if (0 !== $exitCode) {
             return false;
@@ -706,16 +708,17 @@ class Deepzoom
         // directory cannot be set properly via exec().  Note that exec() works
         // fine when executing in the web environment but fails in CLI.
         $descriptorSpec = array(
-            0 => array("pipe", "r"), //STDIN
-            1 => array("pipe", "w"), //STDOUT
-            2 => array("pipe", "w"), //STDERR
+            0 => array('pipe', 'r'), //STDIN
+            1 => array('pipe', 'w'), //STDOUT
+            2 => array('pipe', 'w'), //STDERR
         );
+        $pipes = array();
         $proc = proc_open($command, $descriptorSpec, $pipes, getcwd());
         if (!is_resource($proc)) {
             return false;
         }
         $output = stream_get_contents($pipes[1]);
-        $errors = stream_get_contents($pipes[2]);
+        // $errors = stream_get_contents($pipes[2]);
         foreach ($pipes as $pipe) {
             fclose($pipe);
         }
