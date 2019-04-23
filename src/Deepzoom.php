@@ -257,8 +257,12 @@ class Deepzoom
             case 'Imagick':
                 $image = new \Imagick();
                 $image->readImage($this->filepath);
+                $profiles = $image->getImageProfiles("icc", true);
                 $image->transformImageColorspace(\Imagick::COLORSPACE_SRGB);
                 $image->stripImage();
+                if(!empty($profiles)) {
+                    $image->profileImage("icc", $profiles['icc']);
+                }
                 break;
             case 'GD':
                 $image = $this->openImage();
