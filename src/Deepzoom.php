@@ -101,7 +101,7 @@ class Deepzoom
      *
      * @array
      */
-    protected $data = array();
+    protected $data = [];
 
     /**
      * Constructor.
@@ -112,7 +112,7 @@ class Deepzoom
     public function __construct(array $config = null)
     {
         if (is_null($config)) {
-            $config = array();
+            $config = [];
         }
 
         foreach ($config as $key => $value) {
@@ -207,7 +207,7 @@ class Deepzoom
             $locationDir = $this->destinationDir;
             $filename = basename($this->filepath);
         }
-        //Determine the path to the directory from the filepath.
+        // Determine the path to the directory from the filepath.
         else {
             list($root) = $this->getRootAndDotExtension($this->filepath);
             $locationDir = dirname($root);
@@ -257,17 +257,21 @@ class Deepzoom
             case 'Imagick':
                 $image = new \Imagick();
                 $image->readImage($this->filepath);
-                $profiles = $image->getImageProfiles("icc", true);
+                // Keep icc profiles, but remove metadata and convert colorspace
+                // to optimize for web delivery.
+                $profiles = $image->getImageProfiles('icc', true);
                 $image->transformImageColorspace(\Imagick::COLORSPACE_SRGB);
                 $image->stripImage();
-                if(!empty($profiles)) {
-                    $image->profileImage("icc", $profiles['icc']);
+                if (!empty($profiles)) {
+                    $image->profileImage('icc', $profiles['icc']);
                 }
                 break;
+
             case 'GD':
                 $image = $this->openImage();
                 $this->data['image'] = $image;
                 break;
+
             case 'ImageMagick':
                 $image = $this->filepath;
                 break;
@@ -276,7 +280,7 @@ class Deepzoom
         $width = $this->data['width'];
         $height = $this->data['height'];
 
-        $maxDimension = max(array($width, $height));
+        $maxDimension = max([$width, $height]);
         $numLevels = $this->getNumLevels($maxDimension);
 
         foreach (range($numLevels - 1, 0) as $level) {
@@ -290,9 +294,11 @@ class Deepzoom
             case 'Imagick':
                 $image->destroy();
                 break;
+
             case 'GD':
                 imagedestroy($image);
                 break;
+
             case 'ImageMagick':
                 // Nothing to do.
                 break;
@@ -321,7 +327,7 @@ class Deepzoom
     {
         $columns = (int) ceil(floatval($width) / $this->tileSize);
         $rows = (int) ceil(floatval($height) / $this->tileSize);
-        return array('columns' => $columns, 'rows' => $rows);
+        return ['columns' => $columns, 'rows' => $rows];
     }
 
     /**
@@ -349,7 +355,7 @@ class Deepzoom
     {
         $width = (integer) ceil($width * $scale);
         $height = (integer) ceil($height * $scale);
-        return array('width' => $width, 'height' => $height);
+        return ['width' => $width, 'height' => $height];
     }
 
     /**
@@ -367,11 +373,13 @@ class Deepzoom
             case 'Imagick':
                 $image->resizeImage($width, $height, \Imagick::FILTER_LANCZOS, 1, false);
                 break;
+
             case 'GD':
                 $imageLevel = $this->imageResize($width, $height);
                 break;
+
             case 'ImageMagick':
-                $resize = array();
+                $resize = [];
                 $resize['width'] = $width;
                 $resize['height'] = $height;
                 break;
@@ -401,6 +409,7 @@ class Deepzoom
                         $tileImage->writeImage($filepath);
                         $tileImage->destroy();
                         break;
+
                     case 'GD':
                         $ul_x = $bounds['x'];
                         $ul_y = $bounds['y'];
@@ -411,6 +420,7 @@ class Deepzoom
                         imagejpeg($tileImage, $filepath, $this->tileQuality);
                         imagedestroy($tileImage);
                         break;
+
                     case 'ImageMagick':
                         $this->imageResizeCrop($image, $filepath, $resize, $bounds);
                         break;
@@ -422,9 +432,11 @@ class Deepzoom
             case 'Imagick':
                 // Nothing to do.
                 break;
+
             case 'GD':
                 imagedestroy($imageLevel);
                 break;
+
             case 'ImageMagick':
                 // Nothing to do.
                 break;
@@ -445,7 +457,7 @@ class Deepzoom
         $x = ($column * $this->tileSize) - $offsetX;
         $y = ($row * $this->tileSize) - $offsetY;
 
-        return array('x' => $x, 'y' => $y);
+        return ['x' => $x, 'y' => $y];
     }
 
     /**
@@ -467,7 +479,7 @@ class Deepzoom
         $newWidth = min($width, $w - $position['x']);
         $newHeight = min($height, $h - $position['y']);
 
-        return array_merge($position, array('width' => $newWidth, 'height' => $newHeight));
+        return array_merge($position, ['width' => $newWidth, 'height' => $newHeight]);
     }
 
     /**
@@ -492,11 +504,17 @@ class Deepzoom
      */
     protected function getXMLOutput()
     {
-        $xmlOutput = sprintf('<?xml version="1.0" encoding="UTF-8"?>
+        $xmlOutput = sprintf(
+            '<?xml version="1.0" encoding="UTF-8"?>
 <Image xmlns="http://schemas.microsoft.com/deepzoom/2008" Format="%s" Overlap="%s" TileSize="%s">
     <Size Height="%s" Width="%s" />
 </Image>',
-            $this->tileFormat, $this->tileOverlap, $this->tileSize, $this->data['height'], $this->data['width']) .PHP_EOL;
+            $this->tileFormat,
+            $this->tileOverlap,
+            $this->tileSize,
+            $this->data['height'],
+            $this->data['width']
+        ) .PHP_EOL;
         return $xmlOutput;
     }
 
@@ -508,7 +526,7 @@ class Deepzoom
      */
     protected function rmDir($dirPath)
     {
-        $files = array_diff(scandir($dirPath), array('.', '..'));
+        $files = array_diff(scandir($dirPath), ['.', '..']);
         foreach ($files as $file) {
             $path = $dirPath . DIRECTORY_SEPARATOR . $file;
             if (is_dir($path)) {
@@ -575,9 +593,17 @@ class Deepzoom
     {
         $tempImage = imagecreatetruecolor($width, $height);
         $result = imagecopyresampled(
-            $tempImage, $this->data['image'],
-            0, 0, 0, 0,
-            $width, $height, $this->data['width'], $this->data['height']);
+            $tempImage,
+            $this->data['image'],
+            0,
+            0,
+            0,
+            0,
+            $width,
+            $height,
+            $this->data['width'],
+            $this->data['height']
+        );
 
         if ($result === false) {
             imagedestroy($tempImage);
@@ -598,9 +624,9 @@ class Deepzoom
      * @param array $crop Array with width, height, upper left x and y.
      * @return bool
      */
-    protected function imageResizeCrop($source, $destination, $resize = array(), $crop = array())
+    protected function imageResizeCrop($source, $destination, $resize = [], $crop = [])
     {
-        $params = array();
+        $params = [];
         // Clean the canvas.
         $params[] = '+repage';
         $params[] = '-flatten';
@@ -669,6 +695,7 @@ class Deepzoom
             case 'proc_open':
                 $output = $this->procOpen($command);
                 break;
+
             case 'exec':
             default:
                 $output = $this->exec($command);
@@ -687,7 +714,7 @@ class Deepzoom
      */
     protected function exec($command)
     {
-        $output = array();
+        $output = [];
         $exitCode = null;
         exec($command, $output, $exitCode);
         if (0 !== $exitCode) {
@@ -711,12 +738,12 @@ class Deepzoom
         // fails with a "Permission Denied" error because the current working
         // directory cannot be set properly via exec().  Note that exec() works
         // fine when executing in the web environment but fails in CLI.
-        $descriptorSpec = array(
-            0 => array('pipe', 'r'), //STDIN
-            1 => array('pipe', 'w'), //STDOUT
-            2 => array('pipe', 'w'), //STDERR
-        );
-        $pipes = array();
+        $descriptorSpec = [
+            0 => ['pipe', 'r'], //STDIN
+            1 => ['pipe', 'w'], //STDOUT
+            2 => ['pipe', 'w'], //STDERR
+        ];
+        $pipes = [];
         $proc = proc_open($command, $descriptorSpec, $pipes, getcwd());
         if (!is_resource($proc)) {
             return false;

@@ -16,7 +16,7 @@ class DeepzoomFactory
     public function __invoke(array $config = null)
     {
         if (is_null($config)) {
-            $config = array();
+            $config = [];
         }
 
         // Check the autoload.
