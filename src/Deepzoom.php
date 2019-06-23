@@ -269,6 +269,9 @@ class Deepzoom
 
             case 'GD':
                 $image = $this->openImage();
+                if (empty($image)) {
+                    throw new \Exception('GD cannot manage the image.');
+                }
                 $this->data['image'] = $image;
                 break;
 
@@ -549,22 +552,36 @@ class Deepzoom
     }
 
     /**
-     * Helper to get an image of different type (jpg, png or gif) from file.
+     * Helper to get an image of different type (jpg, png, gif…) from file.
      *
+     * @param string $filepath
      * @return resource Identifier of the image.
      */
     protected function getImageFromFile($filepath)
     {
         switch (strtolower(pathinfo($filepath, PATHINFO_EXTENSION))) {
-            case 'png':
-                return imagecreatefrompng($filepath);
+            case 'bmp':
+                return imagecreatefrombmp($filepath);
+            case 'gd':
+                return imagecreatefromgd($filepath);
+            case 'gd2':
+                return imagecreatefromgd2($filepath);
             case 'gif':
                 return imagecreatefromgif($filepath);
             case 'jpg':
             case 'jpe':
             case 'jpeg':
-            default:
                 return imagecreatefromjpeg($filepath);
+            case 'png':
+                return imagecreatefrompng($filepath);
+            case 'wbmp':
+                return imagecreatefromwbmp($filepath);
+            case 'webp':
+                return imagecreatefromwebp($filepath);
+            case 'xbm':
+                return imagecreatefromxbm($filepath);
+            case 'xpm':
+                return imagecreatefromxpm($filepath);
         }
     }
 
