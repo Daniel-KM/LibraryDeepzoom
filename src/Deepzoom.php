@@ -262,7 +262,7 @@ class Deepzoom
                 $profiles = $image->getImageProfiles('icc', true);
                 $image->transformImageColorspace(\Imagick::COLORSPACE_SRGB);
                 $image->stripImage();
-                if (!empty($profiles)) {
+                if (!empty($profiles['icc'])) {
                     $image->profileImage('icc', $profiles['icc']);
                 }
                 break;
@@ -273,6 +273,14 @@ class Deepzoom
                     throw new \Exception('GD cannot manage the image.');
                 }
                 $this->data['image'] = $image;
+                switch (strtolower(pathinfo($this->filepath, PATHINFO_EXTENSION))) {
+                    case 'jpg':
+                    case 'jpe':
+                    case 'jpeg':
+                        $inputPel = new \lsolesen\pel\PelJpeg($this->filepath);
+                        $this->data['icc'] = $inputPel->getIcc();
+                        break;
+                }
                 break;
 
             case 'ImageMagick':
@@ -421,6 +429,11 @@ class Deepzoom
                         $tileImage = $this->imageCrop($imageLevel, $ul_x, $ul_y, $lr_x, $lr_y);
                         touch($filepath);
                         imagejpeg($tileImage, $filepath, $this->tileQuality);
+                        if (!empty($this->data['icc'])) {
+                            $outputPel = new \lsolesen\pel\PelJpeg($filepath);
+                            $outputPel->setIcc($this->data['icc']);
+                            $outputPel->saveFile($filepath);
+                        }
                         imagedestroy($tileImage);
                         break;
 
