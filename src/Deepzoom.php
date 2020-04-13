@@ -238,6 +238,19 @@ class Deepzoom
     }
 
     /**
+     * Explode a filepath in a root and an extension, i.e. "/path/file.ext" to
+     * "/path/file" and ".ext".
+     *
+     * @return array
+     */
+    protected function getRootAndDotExtension($filepath)
+    {
+        $extension = pathinfo($filepath, PATHINFO_EXTENSION);
+        $root = $extension ? substr($filepath, 0, strrpos($filepath, '.')) : $filepath;
+        return [$root, $extension];
+    }
+
+    /**
      * Create a container for the next group of tiles within the data container.
      */
     protected function createTileContainer($tileContainerName)
