@@ -27,11 +27,18 @@ class Deepzoom
     protected $processor;
 
     /**
-     * The path to command line ImageMagick convert when the processor is "cli".
+     * The path to command line ImageMagick convert.
      *
-     * @var string
+     * @var string|null
      */
     protected $convertPath;
+
+    /**
+     * The path to command line vips.
+     *
+     * @var string|null
+     */
+    protected $vipsPath;
 
     /**
      * The strategy to use by php to process a command ("exec" or "proc_open").
@@ -124,25 +131,16 @@ class Deepzoom
         // Check the processor.
         // Automatic.
         if (empty($this->processor)) {
-            if (extension_loaded('imagick')) {
+            if ($this->getVipsPath()) {
+                $this->processor = 'Vips';
+            } elseif ($this->getConvertPath()) {
+                $this->processor = 'ImageMagick';
+            } elseif (extension_loaded('imagick')) {
                 $this->processor = 'Imagick';
             } elseif (extension_loaded('gd')) {
                 $this->processor = 'GD';
-            } elseif (!empty($this->convertPath)) {
-                $this->processor = 'ImageMagick';
             } else {
-                $this->convertPath = $this->getConvertPath();
-                if (!empty($this->convertPath)) {
-                    $this->processor = 'ImageMagick';
-                } else {
-                    throw new \Exception('Convert path is not available.');
-                }
-            }
-        }
-        // Imagick.
-        elseif ($this->processor == 'Imagick') {
-            if (!extension_loaded('imagick')) {
-                throw new \Exception('Imagick library is not available.');
+                throw new \Exception('No graphic library available.');
             }
         }
         // GD.
@@ -151,13 +149,22 @@ class Deepzoom
                 throw new \Exception('GD library is not available.');
             }
         }
-        // CLI.
+        // Imagick.
+        elseif ($this->processor == 'Imagick') {
+            if (!extension_loaded('imagick')) {
+                throw new \Exception('Imagick library is not available.');
+            }
+        }
+        // CLI ImageMagick.
         elseif ($this->processor == 'ImageMagick') {
-            if (empty($this->convertPath)) {
-                $this->convertPath = $this->getConvertPath();
-                if (empty($this->convertPath)) {
-                    throw new \Exception('Convert path is not available.');
-                }
+            if (!$this->getConvertPath()) {
+                throw new \Exception('Convert path is not available.');
+            }
+        }
+        // CLI Vips.
+        elseif ($this->processor == 'Vips') {
+            if (!$this->getVipsPath()) {
+                throw new \Exception('Vips path is not available.');
             }
         }
         // Error.
@@ -173,21 +180,52 @@ class Deepzoom
      *
      * @param string $filepath The path to the image.
      * @param string $destinationDir The directory where to store the tiles.
+     * @throws \Exception
      * @return bool
      */
     public function process($filepath, $destinationDir = '')
     {
         $this->filepath = realpath($filepath);
         $this->destinationDir = $destinationDir;
-
         $this->getImageMetadata();
         $result = $this->createDataContainer();
         if (!$result) {
             throw new \Exception('Output directory already exists.');
         }
+
+        if ($this->processor === 'Vips') {
+            return $this->processVips();
+        }
+
         $this->processImage();
         $result = $this->saveXMLOutput();
         return $result;
+    }
+
+    /**
+     * Deepzoom the specified image witth Vips and store it in the destination dir.
+     *
+     * @return bool
+     */
+    protected function processVips()
+    {
+        // Vips does not create the tiles when the directory exists.
+        if (!@rmdir($this->data['tileDir'])) {
+            throw new \Exception('Output directory already exists.');
+        }
+
+        $dest = substr($this->data['tileDir'], 0, strlen($this->data['tileDir']) - 6);
+        $command = sprintf(
+            '%s dzsave %s %s --layout dz --suffix %s --overlap %s --tile-size %s --background "0 0 0" --properties',
+            $this->vipsPath,
+            escapeshellarg($this->filepath),
+            escapeshellarg($dest),
+            escapeshellarg('.' . $this->tileFormat . '[Q=' . (int) $this->tileQuality . ']'),
+            (int) $this->tileOverlap,
+            (int) $this->tileSize
+        );
+        $result = $this->execute($command);
+        return $result !== false;
     }
 
     /**
@@ -709,17 +747,41 @@ class Deepzoom
     /**
      * Helper to get the command line to convert.
      *
-     * @return string|null
+     * @return string
      */
     public function getConvertPath()
     {
-        $command = 'whereis -b convert';
-        $result = $this->execute($command);
-        if (empty($result)) {
-            return;
+        if (is_null($this->convertPath)) {
+            $command = 'whereis -b convert';
+            $result = $this->execute($command);
+            if (empty($result)) {
+                $this->convertPath = '';
+            } else {
+                strtok($result, ' ');
+                $this->convertPath = trim(strtok(' '));
+            }
         }
-        strtok($result, ' ');
-        return strtok(' ');
+        return $this->convertPath;
+    }
+
+    /**
+     * Helper to get the command line tool vips.
+     *
+     * @return string
+     */
+    public function getVipsPath()
+    {
+        if (is_null($this->vipsPath)) {
+            $command = 'whereis -b vips';
+            $result = $this->execute($command);
+            if (empty($result)) {
+                $this->vipsPath = '';
+            } else {
+                strtok($result, ' ');
+                $this->vipsPath = strtok(' ');
+            }
+        }
+        return $this->vipsPath;
     }
 
     /**

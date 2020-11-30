@@ -47,6 +47,7 @@ library:
 - PHP Extension [GD] (>=2.0)
 - PHP extension [Imagick] (>=6.5.6)
 - Command line `convert` [ImageMagick] (>=6.0)
+- Command line `vips` [Vips] (>=8.0)
 
 The PHP library `exif` should be installed (generally enabled by default).
 
@@ -104,7 +105,8 @@ Copyright
 ---------
 
 * Copyright 2015-2016 Jeremy Tubbs
-* Copyright 2017-2019 Daniel Berthereau (see [Daniel-KM])
+* Copyright 2019 Corey Gillen
+* Copyright 2017-2020 Daniel Berthereau (see [Daniel-KM])
 
 
 [Deepzoom]: https://gitlab.com/Daniel-KM/LibraryDeepzoom
@@ -118,6 +120,7 @@ Copyright
 [GD]: https://secure.php.net/manual/en/book.image.php
 [Imagick]: https://php.net/manual/en/book.imagick.php
 [ImageMagick]: https://www.imagemagick.org/
+[Vips]: https://libvips.github.io/libvips
 [deepzoom]: https://github.com/jeremytubbs/deepzoom
 [deepzoom.php]: https://github.com/nfabre/deepzoom.php
 [blog]: http://omarriott.com/aux/leaflet-js-non-geographical-imagery/
