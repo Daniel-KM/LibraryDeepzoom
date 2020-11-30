@@ -73,7 +73,7 @@ your archives regularly so you can roll back if needed.
 Troubleshooting
 ---------------
 
-See the online [issues] page on GitHub.
+See the online [issues] page on GitLab.
 
 
 License
@@ -107,12 +107,12 @@ Copyright
 * Copyright 2017-2019 Daniel Berthereau (see [Daniel-KM])
 
 
-[Deepzoom]: https://github.com/Daniel-KM/LibraryDeepzoom
+[Deepzoom]: https://gitlab.com/Daniel-KM/LibraryDeepzoom
 [DZI]: https://en.wikipedia.org/wiki/Deep_Zoom
 [OpenSeadragon]: https://openseadragon.github.io
 [OpenLayers]: https://openlayers.org/
 [International Image Interoperability Framework]: http://iiif.io
-[IIIF Server]: https://github.com/Daniel-KM/Omeka-S-module-IiifServer
+[IIIF Server]: https://gitlab.com/Daniel-KM/Omeka-S-module-IiifServer
 [Omeka S]: https://omeka.org/s
 [package]: https://packagist.org/packages/daniel-km/deepzoom
 [GD]: https://secure.php.net/manual/en/book.image.php
@@ -121,7 +121,7 @@ Copyright
 [deepzoom]: https://github.com/jeremytubbs/deepzoom
 [deepzoom.php]: https://github.com/nfabre/deepzoom.php
 [blog]: http://omarriott.com/aux/leaflet-js-non-geographical-imagery/
-[Zoomify library]: https://github.com/Daniel-KM/LibraryZoomify
-[issues]: https://github.com/Daniel-KM/LibraryDeepzoom/issues
+[Zoomify library]: https://gitlab.com/Daniel-KM/LibraryZoomify
+[issues]: https://gitlab.com/Daniel-KM/LibraryDeepzoom/-/issues
 [MIT]: https://www.gnu.org/licenses/gpl-3.0.html
-[Daniel-KM]: https://github.com/Daniel-KM "Daniel Berthereau"
+[Daniel-KM]: https://gitlab.com/Daniel-KM "Daniel Berthereau"

@@ -7,7 +7,7 @@
         {
             "name": "Daniel Berthereau",
             "email": "daniel.packagist@berthereau.net",
-            "homepage": "http://www.daniel.berthereau.net"
+            "homepage": "https://gitlab.com/Daniel-KM"
         },
         {
             "name": "Jeremy Tubbs",
@@ -31,8 +31,8 @@
     ],
     "support": {
         "email": "daniel.support@berthereau.net",
-        "issues": "https://github.com/Daniel-KM/LibraryDeepzoom/issues",
-        "source": "https://github.com/Daniel-KM/LibraryDeepzoom"
+        "issues": "https://gitlab.com/Daniel-KM/LibraryDeepzoom/-/issues",
+        "source": "https://gitlab.com/Daniel-KM/LibraryDeepzoom"
     },
     "autoload": {
         "psr-4": {
