@@ -543,7 +543,7 @@ class Deepzoom
             $this->tileSize,
             $this->data['height'],
             $this->data['width']
-        ) .PHP_EOL;
+        ) . PHP_EOL;
         return $xmlOutput;
     }
 
