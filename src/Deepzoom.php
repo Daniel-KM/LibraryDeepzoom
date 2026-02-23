@@ -133,6 +133,10 @@ class Deepzoom
         if (empty($this->processor)) {
             if ($this->getVipsPath()) {
                 $this->processor = 'Vips';
+            } elseif ((extension_loaded('vips') || extension_loaded('ffi'))
+                && class_exists('Jcupitt\Vips\Image')
+            ) {
+                $this->processor = 'PhpVips';
             } elseif ($this->getConvertPath()) {
                 $this->processor = 'ImageMagick';
             } elseif (extension_loaded('imagick')) {
@@ -165,6 +169,14 @@ class Deepzoom
         elseif ($this->processor == 'Vips') {
             if (!$this->getVipsPath()) {
                 throw new \Exception('Vips path is not available.');
+            }
+        }
+        // PHP Vips.
+        elseif ($this->processor === 'PhpVips') {
+            if ((!extension_loaded('vips') && !extension_loaded('ffi'))
+                || !class_exists('Jcupitt\Vips\Image')
+            ) {
+                throw new \Exception('php-vips library is not available.');
             }
         }
         // Error.
@@ -201,6 +213,10 @@ class Deepzoom
             return $this->processVips();
         }
 
+        if ($this->processor === 'PhpVips') {
+            return $this->processPhpVips();
+        }
+
         $this->processImage();
         $result = $this->saveXMLOutput();
         return $result;
@@ -230,6 +246,31 @@ class Deepzoom
         );
         $result = $this->execute($command);
         return $result !== false;
+    }
+
+    /**
+     * Deepzoom the specified image with php-vips and store it in the destination dir.
+     *
+     * @return bool
+     */
+    protected function processPhpVips()
+    {
+        // Vips does not create the tiles when the directory exists.
+        if (!@rmdir($this->data['tileDir'])) {
+            throw new \Exception('Output directory already exists.');
+        }
+
+        $dest = substr($this->data['tileDir'], 0, strlen($this->data['tileDir']) - 6);
+        $image = \Jcupitt\Vips\Image::newFromFile($this->filepath);
+        $image->dzsave($dest, [
+            'layout' => 'dz',
+            'suffix' => '.' . $this->tileFormat . '[Q=' . (int) $this->tileQuality . ']',
+            'overlap' => (int) $this->tileOverlap,
+            'tile_size' => (int) $this->tileSize,
+            'background' => [0, 0, 0],
+            'properties' => true,
+        ]);
+        return true;
     }
 
     /**
