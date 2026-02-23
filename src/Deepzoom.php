@@ -745,14 +745,9 @@ class Deepzoom
     public function getConvertPath()
     {
         if (is_null($this->convertPath)) {
-            $command = 'whereis -b convert';
+            $command = 'command -v convert';
             $result = $this->execute($command);
-            if (empty($result)) {
-                $this->convertPath = '';
-            } else {
-                strtok($result, ' ');
-                $this->convertPath = trim(strtok(' '));
-            }
+            $this->convertPath = empty($result) ? '' : trim($result);
         }
         return $this->convertPath;
     }
@@ -765,14 +760,9 @@ class Deepzoom
     public function getVipsPath()
     {
         if (is_null($this->vipsPath)) {
-            $command = 'whereis -b vips';
+            $command = 'command -v vips';
             $result = $this->execute($command);
-            if (empty($result)) {
-                $this->vipsPath = '';
-            } else {
-                strtok($result, ' ');
-                $this->vipsPath = strtok(' ');
-            }
+            $this->vipsPath = empty($result) ? '' : trim($result);
         }
         return $this->vipsPath;
     }
