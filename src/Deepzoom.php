@@ -64,7 +64,7 @@ class Deepzoom
     /**
      * If an existing destination should be removed.
      *
-     * @var int
+     * @var bool
      */
     protected $destinationRemove = false;
 
@@ -106,7 +106,7 @@ class Deepzoom
     /**
      * Various metadata of the source and tiles.
      *
-     * @array
+     * @var array
      */
     protected $data = [];
 
@@ -148,25 +148,25 @@ class Deepzoom
             }
         }
         // GD.
-        elseif ($this->processor == 'GD') {
+        elseif ($this->processor === 'GD') {
             if (!extension_loaded('gd')) {
                 throw new \Exception('GD library is not available.');
             }
         }
         // Imagick.
-        elseif ($this->processor == 'Imagick') {
+        elseif ($this->processor === 'Imagick') {
             if (!extension_loaded('imagick')) {
                 throw new \Exception('Imagick library is not available.');
             }
         }
         // CLI ImageMagick.
-        elseif ($this->processor == 'ImageMagick') {
+        elseif ($this->processor === 'ImageMagick') {
             if (!$this->getConvertPath()) {
                 throw new \Exception('Convert path is not available.');
             }
         }
         // CLI Vips.
-        elseif ($this->processor == 'Vips') {
+        elseif ($this->processor === 'Vips') {
             if (!$this->getVipsPath()) {
                 throw new \Exception('Vips path is not available.');
             }
@@ -186,7 +186,7 @@ class Deepzoom
     }
 
     /**
-     * Deepzoom the specified image and it them in the destination dir.
+     * Deepzoom the specified image and tile them in the destination dir.
      *
      * Check to be sure the file hasn't been converted already.
      *
@@ -223,7 +223,7 @@ class Deepzoom
     }
 
     /**
-     * Deepzoom the specified image witth Vips and store it in the destination dir.
+     * Deepzoom the specified image with Vips and store it in the destination dir.
      *
      * @return bool
      */
@@ -237,7 +237,7 @@ class Deepzoom
         $dest = substr($this->data['tileDir'], 0, strlen($this->data['tileDir']) - 6);
         $command = sprintf(
             '%s dzsave %s %s --layout dz --suffix %s --overlap %s --tile-size %s --background "0 0 0" --properties',
-            $this->vipsPath,
+            escapeshellarg($this->vipsPath),
             escapeshellarg($this->filepath),
             escapeshellarg($dest),
             escapeshellarg('.' . $this->tileFormat . '[Q=' . (int) $this->tileQuality . ']'),
@@ -317,13 +317,14 @@ class Deepzoom
 
         mkdir($this->data['tileDir'], $this->dirMode, true);
 
-        return  true;
+        return true;
     }
 
     /**
      * Explode a filepath in a root and an extension, i.e. "/path/file.ext" to
      * "/path/file" and ".ext".
      *
+     * @param string $filepath
      * @return array
      */
     protected function getRootAndDotExtension($filepath)
@@ -387,10 +388,10 @@ class Deepzoom
         $width = $this->data['width'];
         $height = $this->data['height'];
 
-        $maxDimension = max([$width, $height]);
+        $maxDimension = max($width, $height);
         $numLevels = $this->getNumLevels($maxDimension);
 
-        foreach (range($numLevels - 1, 0) as $level) {
+        for ($level = $numLevels - 1; $level >= 0; $level--) {
             $this->createTileContainer($level);
             $scale = $this->getScaleForLevel($numLevels, $level);
             $dimension = $this->getDimensionForScale($width, $height, $scale);
@@ -415,34 +416,34 @@ class Deepzoom
     /**
      * Get the number of levels in the pyramid.
      *
-     * @param $maxDimension
+     * @param int $maxDimension
      * @return int
      */
     protected function getNumLevels($maxDimension)
     {
-        return (integer) ceil(log($maxDimension, 2)) + 1;
+        return (int) ceil(log($maxDimension, 2)) + 1;
     }
 
     /**
      * Get the number of tiles according to the tile size.
      *
-     * @param $width
-     * @param $height
+     * @param int $width
+     * @param int $height
      * @return array
      */
     protected function getNumTiles($width, $height)
     {
-        $columns = (int) ceil(floatval($width) / $this->tileSize);
-        $rows = (int) ceil(floatval($height) / $this->tileSize);
+        $columns = (int) ceil($width / $this->tileSize);
+        $rows = (int) ceil($height / $this->tileSize);
         return ['columns' => $columns, 'rows' => $rows];
     }
 
     /**
      * Get the scale for the specified level, according to the number of levels.
      *
-     * @param $numberLevels
-     * @param $level
-     * @return number
+     * @param int $numberLevels
+     * @param int $level
+     * @return float
      */
     protected function getScaleForLevel($numberLevels, $level)
     {
@@ -453,25 +454,25 @@ class Deepzoom
     /**
      * Get the dimension for the specified size and scale.
      *
-     * @param $width
-     * @param $height
-     * @param $scale
+     * @param int $width
+     * @param int $height
+     * @param float $scale
      * @return array
      */
     protected function getDimensionForScale($width, $height, $scale)
     {
-        $width = (integer) ceil($width * $scale);
-        $height = (integer) ceil($height * $scale);
+        $width = (int) ceil($width * $scale);
+        $height = (int) ceil($height * $scale);
         return ['width' => $width, 'height' => $height];
     }
 
     /**
      * Process a level of tiles.
      *
-     * @param $image
-     * @param $level
-     * @param $width
-     * @param $height
+     * @param \Imagick|resource|string $image
+     * @param int $level
+     * @param int $width
+     * @param int $height
      */
     protected function createLevelTiles($image, $level, $width, $height)
     {
@@ -497,18 +498,18 @@ class Deepzoom
         // Get column and row count for level.
         $tiles = $this->getNumTiles($width, $height);
 
-        foreach (range(0, $tiles['columns'] - 1) as $column) {
-            foreach (range(0, $tiles['rows'] - 1) as $row) {
+        for ($column = 0; $column < $tiles['columns']; $column++) {
+            for ($row = 0; $row < $tiles['rows']; $row++) {
                 $filename = $column . '_' . $row . '.' . $this->tileFormat;
                 $filepath = $basepath . DIRECTORY_SEPARATOR . $filename;
-                $bounds = $this->getTileBounds($level, $column, $row, $width, $height);
+                $bounds = $this->getTileBounds($column, $row, $width, $height);
 
                 switch ($this->processor) {
                     case 'Imagick':
                         $tileImage = $image->getImageRegion($bounds['width'], $bounds['height'], $bounds['x'], $bounds['y']);
                         $tileImage->setImagePage(0, 0, 0, 0);
                         $tileImage->setImageFormat($this->tileFormat);
-                        if ($this->tileFormat == 'jpg') {
+                        if ($this->tileFormat === 'jpg') {
                             $tileImage->setImageCompression(\Imagick::COMPRESSION_JPEG);
                         }
                         $tileImage->setImageCompressionQuality($this->tileQuality);
@@ -623,7 +624,7 @@ class Deepzoom
     /**
      * Remove a dir from filesystem.
      *
-     * @param string $dirpath
+     * @param string $dirPath
      * @return bool
      */
     protected function rmDir($dirPath)
@@ -690,6 +691,11 @@ class Deepzoom
     /**
      * Crop an image to a size.
      *
+     * @param resource $image
+     * @param int $left
+     * @param int $upper
+     * @param int $right
+     * @param int $lower
      * @return resource Identifier of the image.
      */
     protected function imageCrop($image, $left, $upper, $right, $lower)
@@ -755,7 +761,7 @@ class Deepzoom
         if ($crop) {
             $params[] = '-crop ' . escapeshellarg(sprintf('%dx%d+%d+%d', $crop['width'], $crop['height'], $crop['x'], $crop['y']));
         }
-        $params[] = '-quality ' . $this->tileQuality;
+        $params[] = '-quality ' . (int) $this->tileQuality;
 
         $result = $this->convert($source, $destination, $params);
         return $result;
@@ -773,7 +779,7 @@ class Deepzoom
     {
         $command = sprintf(
             '%s %s %s %s',
-            $this->convertPath,
+            escapeshellarg($this->convertPath),
             escapeshellarg($source . '[0]'),
             implode(' ', $params),
             escapeshellarg($destination)
@@ -869,16 +875,16 @@ class Deepzoom
      * @param string $command
      * @return string|false
      */
-    protected static function procOpen($command)
+    protected function procOpen($command)
     {
         // Using proc_open() instead of exec() solves a problem where exec('convert')
         // fails with a "Permission Denied" error because the current working
         // directory cannot be set properly via exec().  Note that exec() works
         // fine when executing in the web environment but fails in CLI.
         $descriptorSpec = [
-            0 => ['pipe', 'r'], //STDIN
-            1 => ['pipe', 'w'], //STDOUT
-            2 => ['pipe', 'w'], //STDERR
+            0 => ['pipe', 'r'], // STDIN
+            1 => ['pipe', 'w'], // STDOUT
+            2 => ['pipe', 'w'], // STDERR
         ];
         $pipes = [];
         $proc = proc_open($command, $descriptorSpec, $pipes, getcwd());
