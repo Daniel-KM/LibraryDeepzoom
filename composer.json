@@ -48,7 +48,14 @@
         "php": ">=5.4.0",
         "lsolesen/pel": "^0.9.6"
     },
+    "autoload-dev": {
+        "psr-4": {
+            "DanielKm\\Deepzoom\\Test\\": "tests/"
+        }
+    },
     "require-dev": {
-        "friendsofphp/php-cs-fixer": "^2.15"
+        "friendsofphp/php-cs-fixer": "^2.15",
+        "phpunit/phpunit": "^10.5",
+        "jcupitt/vips": "^1.0"
     }
 }
