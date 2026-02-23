@@ -513,42 +513,30 @@ class Deepzoom
     }
 
     /**
-     * Get the tile bounds position.
+     * Get the tile bounds.
      *
-     * @param $column
-     * @param $row
+     * @param int $column
+     * @param int $row
+     * @param int $w
+     * @param int $h
      * @return array
      */
-    protected function getTileBoundsPosition($column, $row)
+    protected function getTileBounds($column, $row, $w, $h)
     {
-        $offsetX = $column == 0 ? 0 : $this->tileOverlap;
-        $offsetY = $row == 0 ? 0 : $this->tileOverlap;
+        $offsetX = $column === 0 ? 0 : $this->tileOverlap;
+        $offsetY = $row === 0 ? 0 : $this->tileOverlap;
         $x = ($column * $this->tileSize) - $offsetX;
         $y = ($row * $this->tileSize) - $offsetY;
 
-        return ['x' => $x, 'y' => $y];
-    }
+        $width = $this->tileSize + ($column === 0 ? 1 : 2) * $this->tileOverlap;
+        $height = $this->tileSize + ($row === 0 ? 1 : 2) * $this->tileOverlap;
 
-    /**
-     * Get the tile bounds.
-     *
-     * @param $level
-     * @param $column
-     * @param $row
-     * @param $w
-     * @param $h
-     * @return array
-     */
-    protected function getTileBounds($level, $column, $row, $w, $h)
-    {
-        $position = $this->getTileBoundsPosition($column, $row);
-
-        $width = $this->tileSize + ($column == 0 ? 1 : 2) * $this->tileOverlap;
-        $height = $this->tileSize + ($row == 0 ? 1 : 2) * $this->tileOverlap;
-        $newWidth = min($width, $w - $position['x']);
-        $newHeight = min($height, $h - $position['y']);
-
-        return array_merge($position, ['width' => $newWidth, 'height' => $newHeight]);
+        return [
+            'x' => $x,
+            'y' => $y,
+            'width' => min($width, $w - $x),
+            'height' => min($height, $h - $y),
+        ];
     }
 
     /**
@@ -710,10 +698,10 @@ class Deepzoom
     protected function imageResizeCrop($source, $destination, $resize = [], $crop = [])
     {
         $params = [];
-        // Clean the canvas.
-        $params[] = '+repage';
-        $params[] = '-flatten';
         if ($resize) {
+            // Clean the canvas only when processing from source.
+            $params[] = '+repage';
+            $params[] = '-flatten';
             $params[] = '-thumbnail ' . escapeshellarg(sprintf('%sx%s!', $resize['width'], $resize['height']));
         }
         if ($crop) {
