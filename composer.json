@@ -27,6 +27,7 @@
         "gd",
         "imagemagick",
         "imagick",
+        "vips",
         "stand-alone"
     ],
     "support": {
@@ -38,6 +39,10 @@
         "psr-4": {
             "DanielKm\\Deepzoom\\": "src/"
         }
+    },
+    "suggest": {
+        "ext-vips": "PHP extension for vips (for PhpVips processor).",
+        "jcupitt/vips": "PHP library for vips (for PhpVips processor)."
     },
     "require": {
         "php": ">=5.4.0",

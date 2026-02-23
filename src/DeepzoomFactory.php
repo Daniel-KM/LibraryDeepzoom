@@ -20,7 +20,7 @@ class DeepzoomFactory
         }
 
         // Check the autoload.
-        if (!class_exists('Deepzoom')) {
+        if (!class_exists('DanielKm\Deepzoom\Deepzoom', false)) {
             require_once __DIR__ . DIRECTORY_SEPARATOR . 'Deepzoom.php';
         }
         return new Deepzoom($config);
