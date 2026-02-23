@@ -186,6 +186,10 @@ class Deepzoom
     public function process($filepath, $destinationDir = '')
     {
         $this->filepath = realpath($filepath);
+        if ($this->filepath === false) {
+            throw new \Exception('Source file does not exist.');
+        }
+
         $this->destinationDir = $destinationDir;
         $this->getImageMetadata();
         $result = $this->createDataContainer();
