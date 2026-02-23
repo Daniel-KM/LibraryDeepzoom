@@ -478,12 +478,15 @@ class Deepzoom
                         $lr_x = $bounds['x'] + $bounds['width'];
                         $lr_y = $bounds['y'] + $bounds['height'];
                         $tileImage = $this->imageCrop($imageLevel, $ul_x, $ul_y, $lr_x, $lr_y);
-                        touch($filepath);
-                        imagejpeg($tileImage, $filepath, $this->tileQuality);
                         if (!empty($this->data['icc'])) {
-                            $outputPel = new \lsolesen\pel\PelJpeg($filepath);
+                            ob_start();
+                            imagejpeg($tileImage, null, $this->tileQuality);
+                            $jpegData = ob_get_clean();
+                            $outputPel = new \lsolesen\pel\PelJpeg(new \lsolesen\pel\PelDataWindow($jpegData));
                             $outputPel->setIcc($this->data['icc']);
                             $outputPel->saveFile($filepath);
+                        } else {
+                            imagejpeg($tileImage, $filepath, $this->tileQuality);
                         }
                         imagedestroy($tileImage);
                         break;
