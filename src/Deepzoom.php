@@ -460,9 +460,8 @@ class Deepzoom
 
                 switch ($this->processor) {
                     case 'Imagick':
-                        $tileImage = clone $image;
+                        $tileImage = $image->getImageRegion($bounds['width'], $bounds['height'], $bounds['x'], $bounds['y']);
                         $tileImage->setImagePage(0, 0, 0, 0);
-                        $tileImage->cropImage($bounds['width'], $bounds['height'], $bounds['x'], $bounds['y']);
                         $tileImage->setImageFormat($this->tileFormat);
                         if ($this->tileFormat == 'jpg') {
                             $tileImage->setImageCompression(\Imagick::COMPRESSION_JPEG);
