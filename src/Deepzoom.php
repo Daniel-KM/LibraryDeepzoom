@@ -749,8 +749,12 @@ class Deepzoom
     public function getConvertPath()
     {
         if (is_null($this->convertPath)) {
-            $command = 'command -v convert';
+            $command = 'command -v magick';
             $result = $this->execute($command);
+            if (empty($result)) {
+                $command = 'command -v convert';
+                $result = $this->execute($command);
+            }
             $this->convertPath = empty($result) ? '' : trim($result);
         }
         return $this->convertPath;
