@@ -19,22 +19,49 @@ Usage
 ### Direct use without the factory
 
 ```php
-    // Setup the Deepzoom library.
-    $deepzoom = new \DanielKm\Deepzoom\Deepzoom($config);
+// Setup the Deepzoom library.
+$deepzoom = new \DanielKm\Deepzoom\Deepzoom($config);
 
-    // Process a source file and save tiles in a destination folder.
-    $result = $deepzoom->process($source, $destination);
+// Process a source file and save tiles in a destination folder.
+$result = $deepzoom->process($source, $destination);
 ```
 
 ### Direct invocation with the factory
 
 ```php
-    // Setup the Deepzoom library.
-    $factory = new \DanielKm\Deepzoom\DeepzoomFactory;
-    $deepzoom = $factory($config);
+// Setup the Deepzoom library.
+$factory = new \DanielKm\Deepzoom\DeepzoomFactory;
+$deepzoom = $factory($config);
 
-    // Process a source file and save tiles in a destination folder.
-    $result = $deepzoom->process($source, $destination);
+// Process a source file and save tiles in a destination folder.
+$result = $deepzoom->process($source, $destination);
+```
+
+### Config
+
+| Property          | Default | Type    | Description                                                      |
+|-------------------|---------|---------|------------------------------------------------------------------|
+| processor         | auto    | string  | Image library: `Vips`, `PhpVips`, `ImageMagick`, `Imagick`, `GD` |
+| destinationRemove | false   | boolean | Remove existing tiles before processing                          |
+| dirMode           | 0755    | int     | File system permissions for created directories                  |
+| tileSize          | 256     | int     | Size of tiles in pixels                                          |
+| tileOverlap       | 1       | int     | Overlap of tiles in pixels                                       |
+| tileFormat        | 'jpg'   | string  | Format of output tiles: `jpg`, `png`, `gif`                      |
+| tileQuality       | 85      | int     | Quality of output tiles (1-100, for lossy formats)               |
+| convertPath       | auto    | string  | Path to ImageMagick `convert` binary                             |
+| vipsPath          | auto    | string  | Path to `vips` binary                                            |
+| executeStrategy   | 'exec'  | string  | PHP execution strategy: `exec`, `proc_open`                      |
+
+#### Example
+
+```php
+$config = [
+    'tileSize' => 512,
+    'tileOverlap' => 1,
+    'tileQuality' => 100,
+    'destinationRemove' => true,
+    'processor' => 'Vips',
+];
 ```
 
 
@@ -44,10 +71,11 @@ Supported image libraries
 The format of the image source can be anything that is managed by the image
 library:
 
-- PHP Extension [GD] (>=2.0)
-- PHP extension [Imagick] (>=6.5.6)
-- Command line `convert` [ImageMagick] (>=6.0)
 - Command line `vips` [Vips] (>=8.0)
+- Composer library [php-vips] with PHP extension ext-vips or ext-ffi
+- Command line `magick` / `convert` [ImageMagick] (>=6.0)
+- PHP extension [Imagick] (>=6.5.6)
+- PHP Extension [GD] (>=2.0)
 
 The PHP library `exif` should be installed (generally enabled by default).
 
@@ -121,6 +149,7 @@ Copyright
 [Imagick]: https://php.net/manual/en/book.imagick.php
 [ImageMagick]: https://www.imagemagick.org/
 [Vips]: https://libvips.github.io/libvips
+[php-vips]: https://github.com/libvips/php-vips
 [deepzoom]: https://github.com/jeremytubbs/deepzoom
 [deepzoom.php]: https://github.com/nfabre/deepzoom.php
 [blog]: http://omarriott.com/aux/leaflet-js-non-geographical-imagery/
