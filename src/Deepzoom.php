@@ -441,9 +441,9 @@ class Deepzoom
                 break;
 
             case 'ImageMagick':
-                $resize = [];
-                $resize['width'] = $width;
-                $resize['height'] = $height;
+                // Resize once to a temporary file for this level.
+                $tempResized = tempnam(sys_get_temp_dir(), 'dz_');
+                $this->imageResizeCrop($image, $tempResized, ['width' => $width, 'height' => $height]);
                 break;
         }
 
@@ -492,7 +492,7 @@ class Deepzoom
                         break;
 
                     case 'ImageMagick':
-                        $this->imageResizeCrop($image, $filepath, $resize, $bounds);
+                        $this->imageResizeCrop($tempResized, $filepath, [], $bounds);
                         break;
                 }
             }
@@ -508,7 +508,7 @@ class Deepzoom
                 break;
 
             case 'ImageMagick':
-                // Nothing to do.
+                unlink($tempResized);
                 break;
         }
     }
