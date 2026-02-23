@@ -134,7 +134,7 @@ Copyright
 
 * Copyright 2015-2016 Jeremy Tubbs
 * Copyright 2019 Corey Gillen
-* Copyright 2017-2020 Daniel Berthereau (see [Daniel-KM])
+* Copyright 2017-2026 Daniel Berthereau (see [Daniel-KM])
 
 
 [Deepzoom]: https://gitlab.com/Daniel-KM/LibraryDeepzoom
