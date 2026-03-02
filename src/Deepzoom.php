@@ -104,6 +104,13 @@ class Deepzoom
     protected $tileQuality = 85;
 
     /**
+     * Whether to skip auto-orientation based on EXIF data.
+     *
+     * @var bool
+     */
+    protected $noRotate = false;
+
+    /**
      * Various metadata of the source and tiles.
      *
      * @var array
@@ -234,17 +241,45 @@ class Deepzoom
             throw new \Exception('Output directory already exists.');
         }
 
+        $source = $this->filepath;
+        $tempOriented = null;
+
+        // Auto-orient before tiling.
+        if (!$this->noRotate) {
+            $ext = pathinfo($this->filepath, PATHINFO_EXTENSION) ?: 'v';
+            $tempOriented = tempnam(sys_get_temp_dir(), 'dz_orient_');
+            unlink($tempOriented);
+            $tempOriented .= '.' . $ext;
+            $command = sprintf(
+                '%s autorot %s %s',
+                escapeshellarg($this->vipsPath),
+                escapeshellarg($this->filepath),
+                escapeshellarg($tempOriented)
+            );
+            if ($this->execute($command) !== false && file_exists($tempOriented)) {
+                $source = $tempOriented;
+            } else {
+                @unlink($tempOriented);
+                $tempOriented = null;
+            }
+        }
+
         $dest = substr($this->data['tileDir'], 0, strlen($this->data['tileDir']) - 6);
         $command = sprintf(
             '%s dzsave %s %s --layout dz --suffix %s --overlap %s --tile-size %s --background "0 0 0" --properties',
             escapeshellarg($this->vipsPath),
-            escapeshellarg($this->filepath),
+            escapeshellarg($source),
             escapeshellarg($dest),
             escapeshellarg('.' . $this->tileFormat . '[Q=' . (int) $this->tileQuality . ']'),
             (int) $this->tileOverlap,
             (int) $this->tileSize
         );
         $result = $this->execute($command);
+
+        if ($tempOriented) {
+            @unlink($tempOriented);
+        }
+
         return $result !== false;
     }
 
@@ -262,6 +297,10 @@ class Deepzoom
 
         $dest = substr($this->data['tileDir'], 0, strlen($this->data['tileDir']) - 6);
         $image = \Jcupitt\Vips\Image::newFromFile($this->filepath);
+        // Auto-orient based on EXIF data.
+        if (!$this->noRotate) {
+            $image = $image->autorot();
+        }
         $image->dzsave($dest, [
             'layout' => 'dz',
             'suffix' => '.' . $this->tileFormat . '[Q=' . (int) $this->tileQuality . ']',
@@ -279,6 +318,14 @@ class Deepzoom
     protected function getImageMetadata()
     {
         list($this->data['width'], $this->data['height'], $this->data['format']) = getimagesize($this->filepath);
+        // EXIF orientations 5-8 indicate a 90° or 270°
+        // rotation, so width and height must be swapped.
+        if (!$this->noRotate) {
+            $exif = @exif_read_data($this->filepath);
+            if ($exif && !empty($exif['Orientation']) && $exif['Orientation'] >= 5) {
+                list($this->data['width'], $this->data['height']) = [$this->data['height'], $this->data['width']];
+            }
+        }
     }
 
     /**
@@ -354,6 +401,10 @@ class Deepzoom
             case 'Imagick':
                 $image = new \Imagick();
                 $image->readImage($this->filepath);
+                // Auto-orient based on EXIF data.
+                if (!$this->noRotate) {
+                    $image->autoOrient();
+                }
                 // Keep icc profiles, but remove metadata and convert colorspace
                 // to optimize for web delivery.
                 $profiles = $image->getImageProfiles('icc', true);
@@ -368,6 +419,10 @@ class Deepzoom
                 $image = $this->openImage();
                 if (empty($image)) {
                     throw new \Exception('GD cannot manage the image.');
+                }
+                // Auto-orient based on EXIF data.
+                if (!$this->noRotate) {
+                    $image = $this->autoOrientGd($image, $this->filepath);
                 }
                 $this->data['image'] = $image;
                 switch (strtolower(pathinfo($this->filepath, PATHINFO_EXTENSION))) {
@@ -689,6 +744,57 @@ class Deepzoom
     }
 
     /**
+     * Auto-orient a GD image based on EXIF data.
+     *
+     * @param resource $image
+     * @param string $filepath
+     * @return resource
+     */
+    protected function autoOrientGd($image, $filepath)
+    {
+        $exif = @exif_read_data($filepath);
+        if (!$exif || empty($exif['Orientation']) || $exif['Orientation'] <= 1) {
+            return $image;
+        }
+        switch ($exif['Orientation']) {
+            case 2:
+                imageflip($image, IMG_FLIP_HORIZONTAL);
+                break;
+            case 3:
+                $rotated = imagerotate($image, 180, 0);
+                imagedestroy($image);
+                $image = $rotated;
+                break;
+            case 4:
+                imageflip($image, IMG_FLIP_VERTICAL);
+                break;
+            case 5:
+                $rotated = imagerotate($image, 270, 0);
+                imagedestroy($image);
+                imageflip($rotated, IMG_FLIP_HORIZONTAL);
+                $image = $rotated;
+                break;
+            case 6:
+                $rotated = imagerotate($image, 270, 0);
+                imagedestroy($image);
+                $image = $rotated;
+                break;
+            case 7:
+                $rotated = imagerotate($image, 90, 0);
+                imagedestroy($image);
+                imageflip($rotated, IMG_FLIP_HORIZONTAL);
+                $image = $rotated;
+                break;
+            case 8:
+                $rotated = imagerotate($image, 90, 0);
+                imagedestroy($image);
+                $image = $rotated;
+                break;
+        }
+        return $image;
+    }
+
+    /**
      * Crop an image to a size.
      *
      * @param resource $image
@@ -753,6 +859,10 @@ class Deepzoom
     {
         $params = [];
         if ($resize) {
+            // Auto-orient before resize.
+            if (!$this->noRotate) {
+                $params[] = '-auto-orient';
+            }
             // Clean the canvas only when processing from source.
             $params[] = '+repage';
             $params[] = '-flatten';
